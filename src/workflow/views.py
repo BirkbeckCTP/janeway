@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.urls import reverse
+from django.http import HttpResponse
 
 from security.decorators import editor_user_required, has_journal
 from submission import models as submission_models
@@ -49,6 +50,25 @@ def manage_article_workflow(request, article_id):
     template = 'workflow/manage_article_workflow.html'
     context = {
         'article': article,
+    }
+
+    return render(request, template, context)
+
+
+@has_journal
+def workflow_overview(request):
+    article_list = submission_models.Article.objects.exclude(
+        stage=submission_models.STAGE_UNSUBMITTED
+    )
+
+    if request.journal:
+        article_list = article_list.filter(
+            journal=request.journal,
+        )
+
+    template = 'workflow/workflow_overview.html'
+    context = {
+        'article_list': article_list,
     }
 
     return render(request, template, context)

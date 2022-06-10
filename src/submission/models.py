@@ -283,6 +283,15 @@ class Funder(models.Model):
     funding_id = models.CharField(max_length=500, blank=True, null=True)
 
 
+class CustomArticleLabel(models.Model):
+    article = models.ForeignKey('Article')
+    label = models.CharField(max_length=999, blank=False, null=False)
+    text = models.TextField(blank=True, null=True)
+    date_created = models.DateTimeField(default=timezone.now)
+    reminder_date = models.DateField(blank=True, null=True)
+    creator = models.ForeignKey('core.Account', default=None, blank=True, null=True)
+
+
 class ArticleStageLog(models.Model):
     article = models.ForeignKey('Article')
     stage_from = models.CharField(max_length=200, blank=False, null=False)

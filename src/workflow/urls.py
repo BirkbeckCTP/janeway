@@ -13,4 +13,7 @@ urlpatterns = [
     url(r'^article/(?P<article_id>\d+)/$',
         views.manage_article_workflow,
         name='manage_article_workflow'),
+    url(r'^overview/$',
+        views.workflow_overview,
+        name='workflow_overview'),
 ]

@@ -56,6 +56,11 @@ class ArticleLogAdmin(admin.ModelAdmin):
     readonly_fields = ('date_time',)
 
 
+class CustomArticleLabelAdmin(admin.ModelAdmin):
+    list_display = ('article', 'date_created', 'reminder_date', 'creator__email')
+    list_filter = ('article__stage', 'article__journal')
+    readonly_fields = ('date_created',)
+
 class LicenseAdmin(admin.ModelAdmin):
     list_display = ('name', 'short_name', 'journal', 'url')
     list_filter = ('journal',)
