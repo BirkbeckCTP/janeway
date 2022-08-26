@@ -238,10 +238,15 @@ FINAL_STAGES = {
     STAGE_REJECTED,
 }
 
+NEW_SUBMISSION_STAGES = {
+    STAGE_UNASSIGNED,
+}
+
 REVIEW_STAGES = {
     STAGE_ASSIGNED,
     STAGE_UNDER_REVIEW,
-    STAGE_UNDER_REVISION
+    STAGE_UNDER_REVISION,
+    STAGE_ACCEPTED,
 }
 
 COPYEDITING_STAGES = {
@@ -1007,6 +1012,9 @@ class Article(AbstractLastModifiedModel):
         ).exists():
             return True
 
+        if self.stage == STAGE_ACCEPTED:
+            return True
+
         if self.stage not in NEW_ARTICLE_STAGES | REVIEW_STAGES and self.stage != STAGE_REJECTED:
             return True
 
@@ -1471,6 +1479,13 @@ class Article(AbstractLastModifiedModel):
     def workflow_stages(self):
         from core import models as core_models
         return core_models.WorkflowLog.objects.filter(article=self)
+
+    @property
+    def workflow_element_history(self):
+        from core import models as core_models
+        return core_models.WorkflowElement.objects.filter(
+            workflowlog__article=self,
+        )
 
     @property
     def current_workflow_element(self):
