@@ -40,7 +40,7 @@ Carousel
 
     - Latest articles
     - Latest news
-    - A combonation of both
+    - A combination of both
 
     You can select the number of items to display as well as select the items you want to include or exclude.
 
