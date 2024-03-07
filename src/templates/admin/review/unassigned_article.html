@@ -8,6 +8,12 @@
 {% block title-section %}Unassigned{% endblock %}
 {% block title-sub %}#{{ article.pk }} / {{ article.correspondence_author.last_name }} / {{ article.safe_title }}{% endblock %}
 
+{% block breadcrumbs %}
+    {{ block.super }}
+    <li><a href="{% url 'review_unassigned' %}">Unassigned Articles</a></li>
+    <li>{{ article.safe_title }}</li>
+{% endblock breadcrumbs %}
+
 {% block body %}
     {% user_has_role request 'editor' as is_editor %}
     <div class="large-7 columns">
