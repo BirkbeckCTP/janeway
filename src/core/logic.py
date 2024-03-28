@@ -498,9 +498,25 @@ def get_settings_to_edit(display_group, journal, user):
     elif display_group == 'styling':
         group_of_settings = [
             {
-                'name': 'enable_editorial_images',
+                'name': 'display_journal_title',
                 'object': setting_handler.get_setting('styling',
-                                                      'enable_editorial_images',
+                                                      'display_journal_title',
+                                                      journal),
+            },
+        ]
+        setting_group = 'styling'
+    elif display_group == 'editorial':
+        group_of_settings = [
+            {
+                'name': 'editorial_group_page_name',
+                'object': setting_handler.get_setting('styling',
+                                                      'editorial_group_page_name',
+                                                      journal),
+            },
+            {
+                'name': 'hide_editorial_group_names',
+                'object': setting_handler.get_setting('styling',
+                                                      'hide_editorial_group_names',
                                                       journal),
             },
             {
@@ -508,15 +524,10 @@ def get_settings_to_edit(display_group, journal, user):
                 'object': setting_handler.get_setting('styling',
                                                       'multi_page_editorial',
                                                       journal),
-            },
-            {
-                'name': 'display_journal_title',
-                'object': setting_handler.get_setting('styling',
-                                                      'display_journal_title',
-                                                      journal),
             }
         ]
         setting_group = 'styling'
+
     elif display_group == 'news':
         group_of_settings = [
             {
