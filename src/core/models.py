@@ -208,7 +208,7 @@ class AccountManager(BaseUserManager):
 
 class Account(AbstractBaseUser, PermissionsMixin):
     email = PGCaseInsensitiveEmailField(unique=True, verbose_name=_('Email'))
-    username = models.CharField(max_length=254, unique=True, verbose_name=_('Username'))
+    username = models.CharField(max_length=254, unique=True, verbose_name=_('Email'))
 
     name_prefix = models.CharField(max_length=10, blank=True)
     first_name = models.CharField(max_length=300, null=True, blank=False, verbose_name=_('First name'))
