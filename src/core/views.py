@@ -64,10 +64,11 @@ def user_login(request):
     :param request: HttpRequest
     :return: HttpResponse
     """
+    next_url = request.GET.get('next', '')
     if request.user.is_authenticated:
         messages.info(request, 'You are already logged in.')
-        if request.GET.get('next'):
-            return redirect(request.GET.get('next'))
+        if next_url:
+            return redirect(next_url)
         else:
             return redirect(reverse('website_index'))
     else:
@@ -107,8 +108,8 @@ def user_login(request):
                     except models.OrcidToken.DoesNotExist:
                         pass
 
-                if request.GET.get('next'):
-                    return redirect(request.GET.get('next'))
+                if next_url:
+                    return redirect(next_url)
                 elif request.journal:
                     return redirect(reverse('core_dashboard'))
                 else:
@@ -141,6 +142,7 @@ def user_login(request):
 
     context = {
         'form': form,
+        'next_url': next_url,
     }
     template = 'core/login.html'
 
@@ -199,15 +201,18 @@ def user_login_orcid(request):
             messages.add_message(
                 request,
                 messages.WARNING,
-                'Valid ORCiD not returned, please try again, or login with your username and password.'
+                'Valid ORCiD not returned. '
+                'Please try again, or log in with your username and password.'
             )
-            return redirect(reverse('core_login'))
+            return redirect(logic.reverse_with_next('core_login', request))
     else:
         messages.add_message(
             request,
             messages.WARNING,
-            'No authorisation code provided, please try again or login with your username and password.')
-        return redirect(reverse('core_login'))
+            'No authorisation code provided. '
+            'Please try again, or log in with your username and password.'
+        )
+        return redirect(logic.reverse_with_next('core_login', request))
 
 
 @login_required
@@ -239,9 +244,9 @@ def get_reset_token(request):
         try:
             account = models.Account.objects.get(email__iexact=email_address)
             logic.start_reset_process(request, account)
-            return redirect(reverse('core_login'))
+            return redirect(logic.reverse_with_next('core_login', request))
         except models.Account.DoesNotExist:
-            return redirect(reverse('core_login'))
+            return redirect(logic.reverse_with_next('core_login', request))
 
     template = 'core/accounts/get_reset_token.html'
     context = {
@@ -282,7 +287,7 @@ def reset_password(request, token):
             reset_token.expired = True
             reset_token.save()
             messages.add_message(request, messages.SUCCESS, 'Your password has been reset.')
-            return redirect(reverse('core_login'))
+            return redirect(logic.reverse_with_next('core_login', request))
 
     template = 'core/accounts/reset_password.html'
     context = {
@@ -295,7 +300,8 @@ def reset_password(request, token):
 
 def register(request):
     """
-    Displays a form for users to register with the journal. If the user is registering on a journal we give them
+    Displays a form for users to register with the journal.
+    If the user is registering on a journal we give them
     the Author role.
     :param request: HttpRequest object
     :return: HttpResponse object
@@ -353,10 +359,10 @@ def register(request):
 
             messages.add_message(
                 request, messages.SUCCESS,
-                _('Your account has been created, please follow the'
+                _('Your account has been created. Please follow the '
                 'instructions in the email that has been sent to you.'),
             )
-            return redirect(reverse('core_login'))
+            return redirect(logic.reverse_with_next('core_login', request))
 
     template = 'core/accounts/register.html'
     context = {
@@ -401,7 +407,7 @@ def activate_account(request, token):
             _('Account activated'),
         )
 
-        return redirect(reverse('core_login'))
+        return redirect(logic.reverse_with_next('core_login', request))
 
     template = 'core/accounts/activate_account.html'
     context = {
@@ -441,7 +447,8 @@ def edit_profile(request):
             try:
                 validate_email(email_address)
                 try:
-                    logic.handle_email_change(request, email_address)
+                    next_url = reverse('core_edit_profile')
+                    logic.handle_email_change(request, email_address, next_url)
                     return redirect(reverse('website_index'))
                 except IntegrityError:
                     messages.add_message(

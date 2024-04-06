@@ -11,6 +11,7 @@ from datetime import timedelta
 import operator
 import re
 from functools import reduce
+from urllib.parse import quote
 
 from django.conf import settings
 from django.contrib.auth import logout
@@ -72,44 +73,65 @@ def send_reset_token(request, reset_token):
     )
 
 
-def send_confirmation_link(request, new_user):
-    core_confirm_account_url = request.site_type.site_url(
-        reverse(
+def reverse_with_next(url_name, request, next_url='', args=None, kwargs=None):
+    if not next_url:
+        next_url = request.GET.get('next', '')
+
+    next_url = quote(next_url)
+
+    if args:
+        url = reverse('core_confirm_account', args=args)
+    elif kwargs:
+        url = reverse('core_confirm_account', kwargs=kwargs)
+    else:
+        url = reverse(url_name)
+
+    if next_url:
+        return f'{url}?next={next_url}'
+    else:
+        return url
+
+
+def get_confirm_account_url(request, user, next_url=''):
+    return request.site_type.site_url(
+        reverse_with_next(
             'core_confirm_account',
-            kwargs={'token': new_user.confirmation_code},
+            request,
+            next_url=next_url,
+            kwargs={'token': user.confirmation_code},
         )
     )
+
+
+def send_confirmation_link(request, new_user, next_url=''):
+    core_confirm_account_url = get_confirm_account_url(
+        request,
+        new_user,
+        next_url,
+    )
+    if request.journal:
+        site_name = request.journal.name
+    elif request.repository:
+        site_name = request.repository.name
+    else:
+        site_name = request.press.name
     context = {
         'user': new_user,
+        'site_name': site_name,
         'core_confirm_account_url': core_confirm_account_url,
     }
-    if not request.journal:
-        message = render_template.get_message_content(
-            request,
-            context,
-            request.press.registration_text,
-            template_is_setting=True,
-        )
-    else:
-        message = render_template.get_message_content(
-            request,
-            context,
-            'new_user_registration',
-        )
-
-    subject = 'subject_new_user_registration'
-
     notify_helpers.send_slack(
         request,
         'New registration: {0}'.format(new_user.full_name()),
         ['slack_admins'],
     )
     log_dict = {'level': 'Info', 'types': 'Account Confirmation', 'target': None}
-    notify_helpers.send_email_with_body_from_user(
+    notify_helpers.send_email_with_body_from_setting_template(
         request,
-        subject,
+        'new_user_registration',
+        'subject_new_user_registration',
         new_user.email,
-        message,
+        context,
         log_dict=log_dict,
     )
 
@@ -621,20 +643,18 @@ def handle_article_thumb_image_file(uploaded_file, article, request):
         article.save()
 
 
-def handle_email_change(request, email_address):
+def handle_email_change(request, email_address, next_url=''):
     request.user.email = email_address
     request.user.is_active = False
     request.user.confirmation_code = uuid.uuid4()
     request.user.clean()
     request.user.save()
 
-    core_confirm_account_url = request.site_type.site_url(
-        reverse(
-            'core_confirm_account',
-            kwargs={'token': request.user.confirmation_code},
-        )
+    core_confirm_account_url = get_confirm_account_url(
+        request,
+        request.user,
+        next_url=next_url,
     )
-
     context = {
         'user': request.user,
         'core_confirm_account_url': core_confirm_account_url,
