@@ -1,11 +1,12 @@
 __copyright__ = "Copyright 2021 Birkbeck, University of London"
-__author__ = "Martin Paul Eve, Mauro Sanchez & Andy Byers"
+__author__ = "Open Library of Humanities"
 __license__ = "AGPL v3"
-__maintainer__ = "Birkbeck Centre for Technology and Publishing"
+__maintainer__ = "Open Library of Humanities"
 
 
 from django.conf import settings
 from django.utils import translation
+from django.db.models import Q
 
 
 def update_translated_settings(apps, setting_name, group_name, values_to_replace, replacement_value):
@@ -66,3 +67,18 @@ def update_default_setting_values(apps, setting_name, group_name, values_to_repl
             for variant in variants_to_delete:
                 if getattr(variant, language_var) in values_to_replace:
                     variant.delete()
+
+
+def store_empty_strings(model, fields):
+    """
+    A helper for preparing to remove null=True
+    from string-based fields like CharField,
+    where blank=True is also set.
+    Sets all null values in the specified fields to empty strings.
+    :param model: The model class produced from apps.get_model()
+    :param fields: A list of fields that were null=True and are soon to be
+    null=False
+    """
+    for field in fields:
+        query = Q((f'{field}__isnull', True))
+        model.objects.filter(query).update(**{field: ''})
