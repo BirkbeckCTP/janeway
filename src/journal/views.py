@@ -2767,3 +2767,8 @@ class PublishedArticlesListView(FacetedArticlesListView):
         context = super().get_context_data(**kwargs)
         context['search_form'] = forms.SearchForm()
         return context
+
+
+@method_decorator(editor_user_required, name='dispatch')
+class JournalUsers(core_views.BaseUserList):
+    pass
