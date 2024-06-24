@@ -178,48 +178,48 @@
                         <div class="card">
                             <div class="card-content center">
                                 <div class="alm">
-                                    <p class="alm_numbers">
+                                    <h5>
                                         {{ article.metrics.views }}
-                                    </p>
-                                    <p><i class="fa fa-eye"></i> {% trans "Views" %}</p>
+                                    </h5>
+                                    <p><i class="fa fa-eye"></i>{% trans "Views" %}</p>
                                 </div>
                                 <div class="alm">
-                                    <p class="alm_numbers">
+                                    <h5>
                                         {{ article.metrics.downloads }}
-                                    </p>
-                                    <p><i class="fa fa-download"></i> {% trans "Downloads" %}</p>
+                                    </h5>
+                                    <p><i class="fa fa-download"></i>{% trans "Downloads" %}</p>
                                 </div>
                                 {% if article.metrics.alm.twitter %}
                                     <div class="alm">
-                                        <p class="alm_numbers">
+                                        <h5>
                                             {{ article.metrics.alm.twitter }}
-                                        </p>
-                                        <p><i class="fa fa-twitter"></i> {% trans "Tweets" %}</p>
+                                        </h5>
+                                        <p><i class="fa fa-twitter"></i>{% trans "Tweets" %}</p>
                                     </div>
                                 {% endif %}
                                 {% if article.metrics.alm.wikipedia %}
                                     <div class="alm">
-                                        <p class="alm_numbers">
+                                        <h5>
                                             {{ article.metrics.alm.wikipedia }}
-                                        </p>
-                                        <p><i class="fa fa-wikipedia-w"></i> {% trans "Wikipedia" %}</p>
+                                        </h5>
+                                        <p><i class="fa fa-wikipedia-w"></i>{% trans "Wikipedia" %}</p>
                                     </div>
                                 {% endif %}
                                 {% if article.metrics.alm.reddit %}
                                     <div class="alm">
-                                        <p class="alm_numbers">
+                                        <h5>
                                             {{ article.metrics.alm.reddit }}
-                                        </p>
-                                        <p><i class="fa fa-reddit"></i> {% trans "Reddit" %}</p>
+                                        </h5>
+                                        <p><i class="fa fa-reddit"></i>{% trans "Reddit" %}</p>
                                     </div>
                                 {% endif %}
 
                                 {% if article.citation_count and not journal_settings.article.suppress_citations_metric %}
                                     <div class="alm">
-                                        <p class="alm_numbers">
+                                        <h5>
                                             {{ article.citation_count }}
-                                        </p>
-                                        <p><i class="fa fa-quote-left"></i> {% trans "Citations" %}</p>
+                                        </h5>
+                                        <p><i class="fa fa-quote-left"></i>{% trans "Citations" %}</p>
                                     </div>
                                 {% endif %}
                             </div>
@@ -254,13 +254,13 @@
                       {% with article.get_doi_url as doi_url%}
                         <a class="waves-effect waves-light btn btn-small facebook-bg"
                             href="https://www.facebook.com/share.php?p[url]={% if doi_url %}{{ doi_url }}{% else %}{{ article.url }}{% endif %}" 
-                            target="_blank"><i class="fa fa-facebook"></i></a>
+                            target="_blank" aria-label= {% trans "Share on Facebook" %}><i class="fa fa-facebook"></i></a>
                         <a class="waves-effect waves-light btn btn-small twitter-bg" 
                             href="https://twitter.com/intent/tweet?text={{ article.title }} {% if doi_url %}{{ doi_url }}{% else %}{{ article.url }}{% endif %}"
-                            target="_blank"><i class="fa fa-twitter"></i></a>
+                            target="_blank" aria-label={% trans "Share on X" %}><i class="fa fa-twitter"></i></a>
                         <a class="waves-effect waves-light btn btn-small linkedin-bg"
                             href="https://www.linkedin.com/sharing/share-offsite?url={% if doi_url %}{{ doi_url }}{% else %}{{ article.url }}{% endif %}"
-                            target="_blank"><i class="fa fa-linkedin"></i></a></button>
+                            target="_blank" aria-label={% trans "Share on Linked In" %}><i class="fa fa-linkedin"></i></a></button>
                       {% endwith %}
 
                     {% if article.frozen_authors.count > 0 %}
@@ -473,13 +473,17 @@
                         <h4>
                             {% trans "File Checksums" %} (MD5)
                         </h4>
-                        <ul>
-                            {% for galley in galleys %}
-                                <li>
-                                    <small>{{ galley.label }}: {{ galley.file.checksum }}</small>
-                                </li>
-                            {% endfor %}
-                        </ul>
+                        {% if galleys %}
+                            <ul>
+                                {% for galley in galleys %}
+                                    <li>
+                                        <small>{{ galley.label }}: {{ galley.file.checksum }}</small>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p> {% trans 'File Checksums are not available for this article.' %}</p>
+                        {% endif %}
                     {% endif %}
                 </div>
             </div>
