@@ -75,7 +75,7 @@ class AccountAdmin(UserAdmin):
         admin_utils.RepositoryRoleInline,
         admin_utils.EditorialGroupMemberInline,
         admin_utils.StaffGroupMemberInline,
-        admin_utils.PasswordResetInline,
+        admin_utils.AccountTokenInline,
     ]
 
     def _roles_in(self, obj):
@@ -98,16 +98,6 @@ class RoleAdmin(admin.ModelAdmin):
     """Displays Role objects in the Django admin interface."""
     list_display = ('slug', 'name')
     search_fields = ('slug', 'name',)
-
-
-class PasswordResetAdmin(admin.ModelAdmin):
-    """Displays Password Reset Data"""
-    list_display = ('account', 'expiry', 'expired')
-    search_fields = ('account__first_name', 'account__last_name',
-                     'account__orcid', 'account__email')
-    list_filter = ('expired', 'expiry')
-    raw_id_fields = ('account',)
-    date_hierarchy = ('expiry')
 
 
 class SettingValueAdmin(admin.ModelAdmin):
@@ -281,10 +271,12 @@ class WorkflowLogAdmin(admin_utils.ArticleFKModelAdmin):
         return obj.element.element_name if obj else ''
 
 
-class OrcidTokenAdmin(admin.ModelAdmin):
-    list_display = ('token', 'orcid', 'expiry')
-    list_filter = ('expiry', )
-    search_fields = ('orcid', )
+class AccountTokenAdmin(admin.ModelAdmin):
+    list_display = ('account', 'token', 'identifier', 'expiry')
+    list_filter = ('expired', 'expiry')
+    search_fields = ('account__first_name', 'account__last_name',
+                     'account__email', 'token', 'identifier')
+    raw_id_fields = ('account',)
     date_hierarchy = ('expiry')
 
 
@@ -407,8 +399,7 @@ admin_list = [
     (models.Galley, GalleyAdmin),
     (models.EditorialGroup, EditorialGroupAdmin),
     (models.EditorialGroupMember, EditorialMemberAdmin),
-    (models.PasswordResetToken, PasswordResetAdmin),
-    (models.OrcidToken, OrcidTokenAdmin),
+    (models.AccountToken, AccountTokenAdmin),
     (models.DomainAlias, DomainAliasAdmin),
     (models.Country, CountryAdmin),
     (models.WorkflowElement, WorkflowElementAdmin),

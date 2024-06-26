@@ -7,6 +7,7 @@ import datetime
 from itertools import chain
 from operator import itemgetter
 import collections
+from urllib.parse import parse_qs
 import uuid
 import os
 import re
@@ -351,7 +352,7 @@ class Journal(AbstractSiteModel):
                 pass
         return obj, path
 
-    def site_url(self, path=""):
+    def site_url(self, path="", query=''):
         if self.domain and not settings.URL_CONFIG == 'path':
 
             # Handle domain journal being browsed in path mode
@@ -363,9 +364,10 @@ class Journal(AbstractSiteModel):
                     scheme=self._get_scheme(),
                     port=None,
                     path=path,
+                    query=query,
             )
         else:
-            return self.press.site_path_url(self, path)
+            return self.press.site_path_url(self, path, query=query)
 
     def next_issue_order(self):
         issue_orders = [issue.order for issue in Issue.objects.filter(journal=self)]

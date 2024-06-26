@@ -163,10 +163,10 @@ class RegistrationForm(forms.ModelForm, CaptchaForm):
         user = super(RegistrationForm, self).save(commit=False)
         user.set_password(self.cleaned_data["password_1"])
         user.is_active = False
-        user.confirmation_code = uuid.uuid4()
         user.email_sent = timezone.now()
 
         if commit:
+            models.AccountToken.objects.create(account=self)
             user.save()
             if self.cleaned_data.get('register_as_reader') and self.journal:
                 user.add_account_role(

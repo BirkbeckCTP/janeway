@@ -4,14 +4,14 @@ __license__ = "AGPL v3"
 __maintainer__ = "Birkbeck Centre for Technology and Publishing"
 
 import json
-from urllib.parse import urlencode
+from urllib.parse import urlsplit
 
 from collections import defaultdict
 from django.conf import settings
-from django.urls import reverse
 import requests
 from requests.exceptions import HTTPError
 
+from core.logic import reverse_with_next
 from utils import logic
 from utils.logger import get_logger
 from orcid import PublicAPI as OrcidAPI
@@ -59,9 +59,9 @@ def build_redirect_uri(site):
     :return: (str) Redirect URI for ORCID requests
     """
     request = logic.get_current_request()
-    path = reverse("core_login_orcid")
-
-    return request.site_type.site_url(path)
+    path = reverse_with_next("core_login_orcid", request)
+    parsed_url = urlsplit(path)
+    return request.site_type.site_url(parsed_url.path, query=parsed_url.query)
 
 
 def get_orcid_record_details(orcid):

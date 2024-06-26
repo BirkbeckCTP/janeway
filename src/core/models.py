@@ -237,7 +237,9 @@ class Account(AbstractBaseUser, PermissionsMixin):
     middle_name = models.CharField(max_length=300, null=True, blank=True, verbose_name=_('Middle name'))
     last_name = models.CharField(max_length=300, null=True, blank=False, verbose_name=_('Last name'))
 
+    # activation_code is deprecated
     activation_code = models.CharField(max_length=100, null=True, blank=True)
+
     salutation = models.CharField(max_length=10, choices=SALUTATION_CHOICES, null=True, blank=True,
                                   verbose_name=_('Salutation'))
     suffix = models.CharField(
@@ -258,7 +260,6 @@ class Account(AbstractBaseUser, PermissionsMixin):
     profile_image = models.ImageField(upload_to=profile_images_upload_path, null=True, blank=True, storage=fs, verbose_name=("Profile Image"))
     email_sent = models.DateTimeField(blank=True, null=True)
     date_confirmed = models.DateTimeField(blank=True, null=True)
-    confirmation_code = models.CharField(max_length=200, blank=True, null=True, verbose_name=_("Confirmation Code"))
     signature = JanewayBleachField(null=True, blank=True, verbose_name=_("Signature"))
     interest = models.ManyToManyField('Interest', null=True, blank=True)
     country = models.ForeignKey(
@@ -587,21 +588,87 @@ class Account(AbstractBaseUser, PermissionsMixin):
                                                         last_name=self.last_name)[:30]
         return username.lower()
 
+    @property
+    def confirmation_code(self):
+        """
+        Retrieves the uuid created when the user registered,
+        to be used in an email confirmation link.
+        """
+        tokens = AccountToken.objects.filter(account=self, expired=False)
+        return tokens.latest().token if tokens else None
+
 
 def generate_expiry_date():
     return timezone.now() + timedelta(days=1)
 
 
+class AccountToken(models.Model):
+    """A multi-purpose token-based record that can be used to retrieve
+    information across requests during account management steps and
+    initial authentication.
+    """
+    account = models.ForeignKey(
+        Account,
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+    )
+    token = models.UUIDField(default=uuid.uuid4)
+    identifier = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text='The external personal identifier like an ORCID'
+    )
+    expiry = models.DateTimeField(
+        default=generate_expiry_date,
+        verbose_name=_('Expires on'),
+    )
+    expired = models.BooleanField(default=False)
+    next_url = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text='The path where the user should be redirected after login'
+    )
+
+    def __str__(self):
+        return "Account Token: " + ", ".join([
+            self.account.full_name() if self.account else '',
+            str(self.identifier),
+            self.token,
+            f'expires { self.expiry}',
+            '[expired]' if self.expired else '[active]',
+        ])
+
+    def has_expired(self):
+        if self.expired:
+            return True
+        elif self.expiry < timezone.now():
+            return True
+        else:
+            return False
+
+    class Meta:
+        ordering = ['-expiry']
+        get_latest_by = 'expiry'
+
+
 class OrcidToken(models.Model):
+    """Deprecated. Use AccountToken instead.
+    """
     token = models.UUIDField(default=uuid.uuid4)
     orcid = models.CharField(max_length=200)
     expiry = models.DateTimeField(default=generate_expiry_date, verbose_name=_('Expires on'))
+
+    def __init__(self):
+        raise DeprecationWarning('Use AccountToken instead.')
 
     def __str__(self):
         return "ORCiD Token [{0}] - {1}".format(self.orcid, self.token)
 
 
 class PasswordResetToken(models.Model):
+    """Deprecated. Use AccountToken instead.
+    """
     account = models.ForeignKey(
         Account,
         on_delete=models.CASCADE,
@@ -609,6 +676,9 @@ class PasswordResetToken(models.Model):
     token = models.CharField(max_length=300, default=uuid.uuid4)
     expiry = models.DateTimeField(default=generate_expiry_date, verbose_name=_('Expires on'))
     expired = models.BooleanField(default=False)
+
+    def __init__(self):
+        raise DeprecationWarning('Use AccountToken instead.')
 
     def __str__(self):
         return "Account: {0}, Expiry: {1}, [{2}]".format(
