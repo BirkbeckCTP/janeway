@@ -1,5 +1,5 @@
 {% extends "core/base.html" %}
-{% load i18n %}
+{% load i18n foundation %}
 
 
 {% block title %}{% trans "Update" %}{% endblock title %}
@@ -17,15 +17,13 @@
 
     <div class="row">
         <div class="medium-6 medium-centered large-4 large-centered columns login">
-
+            {% include "elements/forms/errors.html" with form=form %}
             <form method="POST">
                 {% csrf_token %}
                 <div class="callout">
                     <div class="row column log-in-form">
                         <h5>{% trans "Enter your email address to begin the reset process" %}:</h5>
-                        <label>{% trans "Email" %}
-                            <input name="email_address" type="text" placeholder="{% trans "somebody" %}@example.com">
-                        </label>
+                        {{ form|foundation }}
                         <p><button type="submit" class="button expanded">{% trans "Request Token" %}</button></p>
                     </div>
                 </div>
