@@ -31,7 +31,7 @@ from django.utils import translation
 from django.db.models import Q, OuterRef, Subquery, Count, Avg
 from django.views import generic
 
-from core import models, forms, logic, workflow, models as core_models
+from core import models, forms, logic, workflow, files, models as core_models
 from core.model_utils import NotImplementedField, search_model_admin
 from security.decorators import (
     editor_user_required, article_author_required, has_journal,

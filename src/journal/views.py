@@ -50,6 +50,7 @@ from submission import models as submission_models
 from utils import models as utils_models, shared, setting_handler
 from utils.logger import get_logger
 from events import logic as event_logic
+from repository import models as repo_models
 
 logger = get_logger(__name__)
 
@@ -2044,36 +2045,33 @@ def author_list(request):
     return render(request, template, context)
 
 
+@has_journal
 def sitemap(request, issue_id=None):
     """
     Renders an XML sitemap based on articles and pages available to the journal.
     :param request: HttpRequest object
+    :param issue_id: Int, primary key of an Issue object
     :return: HttpResponse object
     """
-    try:
-        path_parts = None
-        if issue_id:
-            issue = get_object_or_404(
-                models.Issue,
-                pk=issue_id,
-                journal=request.journal,
-            )
-            path_parts = [
-                request.journal.code,
-                '{}_sitemap.xml'.format(issue.pk),
-            ]
-        else:
-            path_parts = [
-                request.journal.code,
-                'sitemap.xml',
-            ]
+    if issue_id:
+        issue = models.Issue.objects.get(
+            pk=issue_id,
+            journal=request.journal,
+        )
+        path_parts = [
+            request.journal.code,
+            '{}_sitemap.xml'.format(issue.pk),
+        ]
+    else:
+        path_parts = [
+            request.journal.code,
+            'sitemap.xml',
+        ]
+    return core_logic.sitemap(
+        request,
+        path_parts,
+    )
 
-        if path_parts:
-            return files.serve_sitemap_file(path_parts)
-    except FileNotFoundError:
-        logger.warning('Sitemap for {} not found.'.format(request.journal.name))
-
-    raise Http404()
 
 @decorators.frontend_enabled
 def search(request):
