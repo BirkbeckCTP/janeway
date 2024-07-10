@@ -607,6 +607,53 @@ class PinnedArticle(models.Model):
 ISSUE_CODE_RE = re.compile("^[a-zA-Z0-9-_]+$")
 
 
+class IssueQuerySet(models.QuerySet):
+
+    def for_submission(self, journal, user):
+        """
+        Issues available for submission by the user.
+
+        Issues are filtered by the following criteria:
+        - The issue is a collection
+        - The issue is open for submission
+        - The issue is for the current journal
+        - The user is included in Issue.invitees for any issue or without invitees or with the user in the invitees.
+
+        :param journal: Journal
+        :param user: User
+        :return: QuerySet
+        """
+        return self.collection().by_user(user).open_for_submission().current_journal(journal)
+
+    def open_for_submission(self):
+        """Build a queryset of Issues open for submission."""
+        _now = timezone.now()
+        return self.filter(
+            models.Q(date_close__isnull=True) | models.Q(date_close__gte=_now),
+            models.Q(date_open__isnull=True) | models.Q(date_open__lte=_now)
+        )
+
+    def collection(self):
+        """Filter collection type issues."""
+        return self.filter(issue_type__code="collection")
+
+    def current_journal(self, journal):
+        """Build a queryset of Issues for the current journal."""
+        return self.filter(journal=journal)
+
+    def by_user(self, user):
+        """Build a queryset of Issues available to the current user.
+
+        This means user is included in Issue.invitees for any issue or  without invitees or with the user in the invitees.
+        """
+        if user and user.is_authenticated:
+            return self.filter(
+                models.Q(invitees__isnull=True) | models.Q(invitees__in=[user]),
+            )
+        else:
+            return self.none()
+
+
 class Issue(AbstractLastModifiedModel):
     journal = models.ForeignKey(
         Journal,
@@ -616,6 +663,7 @@ class Issue(AbstractLastModifiedModel):
     # issue metadata
     volume = models.IntegerField(default=1)
     issue = models.CharField(max_length=255, default="1")
+    short_name = models.CharField(blank=True, max_length=300, help_text=gettext("Internal issue name"), default="")
     issue_title = models.CharField(blank=True, max_length=300)
     cached_display_title = models.CharField(
         null=True, blank=True, max_length=300,
@@ -687,6 +735,36 @@ class Issue(AbstractLastModifiedModel):
             " conference proceedings"
         ),
     )
+    description = JanewayBleachField(
+        verbose_name=gettext("Issue presentation"),
+        help_text=gettext("Rich text description of the issue for the issue page."),
+        default="", blank=True
+    )
+    date_open = models.DateTimeField(null=True, blank=True, verbose_name=gettext("Date of submission opening"))
+    date_close = models.DateTimeField(null=True, blank=True, verbose_name=gettext("Date of submission closing"))
+    invitees = models.ManyToManyField(
+        "core.Account",
+        blank=True,
+        related_name="invited_issues",
+    )
+    allowed_sections = models.ManyToManyField(
+        "submission.Section",
+        blank=True,
+    )
+    managing_editors = models.ManyToManyField(
+        "core.Account",
+        blank=True,
+        related_name="managed_issue",
+    )
+    documents = models.ManyToManyField(
+        "core.File",
+        blank=True,
+        related_name="issue_documents",
+    )
+    expected_submissions = models.IntegerField(null=True, blank=True, help_text=gettext("Expected number of submissions"))
+    internal_notes = models.TextField(blank=True, null=True)
+
+    objects = IssueQuerySet.as_manager()
 
     @cached_property
     def doi_url(self):
