@@ -17,6 +17,7 @@ from django.core.cache import cache
 from django.urls import NoReverseMatch, reverse
 from django.shortcuts import render, get_object_or_404, redirect, Http404
 from django.utils import timezone
+from django.utils.decorators import method_decorator
 from django.http import HttpResponse, QueryDict
 from django.contrib.sessions.models import Session
 from django.core.validators import validate_email
@@ -2501,10 +2502,10 @@ class GenericFacetedListView(generic.ListView):
                     )
                     predicates = []
                 elif facets[keyword]['type'] == 'boolean':
-                    if value_list[0]:
-                        predicates = [(keyword, True)]
-                    else:
-                        predicates = [(keyword, False)]
+                    if int(value_list[0]) == 1:
+                        predicates = [(f'{keyword}__exact', 1)]
+                    elif int(value_list[0]) == 0:
+                        predicates = [(f'{keyword}__exact', 0)]
                 elif value_list[0]:
                     predicates = [(keyword, value) for value in value_list]
                 else:
@@ -2513,9 +2514,8 @@ class GenericFacetedListView(generic.ListView):
                 for predicate in predicates:
                     query |= Q(predicate)
                 q_stack.append(query)
-        self.queryset = self.filter_queryset_if_journal(
-            self.queryset.filter(*q_stack)
-        )
+        q_stack.append(self.get_journal_filter_query())
+        self.queryset = self.queryset.filter(*q_stack).distinct()
         return self.order_queryset(self.queryset)
 
     def order_queryset(self, queryset):
@@ -2526,9 +2526,15 @@ class GenericFacetedListView(generic.ListView):
             return queryset
 
     def get_order_by(self):
-        order_by = self.request.GET.get('order_by', '')
+        chosen_order_by = self.request.GET.get('order_by', '')
         order_by_choices = self.get_order_by_choices()
-        return order_by if order_by in dict(order_by_choices) else ''
+        if chosen_order_by in dict(order_by_choices):
+            return chosen_order_by
+        else:
+            try:
+                return order_by_choices[0][0]
+            except IndexError:
+                return ''
 
     def get_order_by_choices(self):
         """ Subclass must implement to allow ordering result set
@@ -2548,9 +2554,9 @@ class GenericFacetedListView(generic.ListView):
         # To make them change dynamically, return None
         # instead of a separate facet.
         # return None
-        queryset = self.filter_queryset_if_journal(
-            super().get_queryset()
-        )
+
+        journal_query = self.get_journal_filter_query()
+        queryset = super().get_queryset().filter(journal_query)
         facets = self.get_facets()
         for facet in facets.values():
             queryset = queryset.annotate(**facet.get('annotations', {}))
@@ -2606,11 +2612,11 @@ class GenericFacetedListView(generic.ListView):
         else:
             return [queryset]
 
-    def filter_queryset_if_journal(self, queryset):
+    def get_journal_filter_query(self):
         if self.request.journal and hasattr(self.model, 'journal'):
-            return queryset.filter(journal=self.request.journal)
+            return Q(journal=self.request.journal)
         else:
-            return queryset
+            return Q()
 
     def filter_facets_if_journal(self, facets):
         if self.request.journal:
@@ -2633,3 +2639,112 @@ class FilteredArticlesListView(GenericFacetedListView):
         raise DeprecationWarning(
             'This view is deprecated. Use GenericFacetedListView instead.'
         )
+
+
+@method_decorator(editor_user_required, name='dispatch')
+class BaseUserList(GenericFacetedListView):
+
+    model = core_models.Account
+    template_name = 'core/manager/users/list.html'
+
+    def get_facets(self):
+        facets = {
+            'q': {
+                'type': 'search',
+                'field_label': 'Search',
+            },
+            'is_active': {
+                'type': 'boolean',
+                'field_label': 'Active',
+            },
+            'is_staff': {
+                'type': 'boolean',
+                'field_label': 'Staff member',
+            },
+            'accountrole__role__pk': {
+                'type': 'foreign_key',
+                'model': models.Role,
+                'field_label': 'Role',
+                'choice_label_field': 'name',
+            },
+            'accountrole__journal__pk': {
+                'type': 'foreign_key',
+                'model': journal_models.Journal,
+                'field_label': 'Journal',
+                'choice_label_field': 'name',
+            },
+        }
+        return self.filter_facets_if_journal(facets)
+
+    def get_order_by_choices(self):
+        return [
+            ('-date_joined', _('Newest')),
+            ('date_joined', _('Oldest')),
+            ('last_name', _('Last name A-Z')),
+            ('-last_name', _('Last name Z-A')),
+        ]
+
+    def get_journal_filter_query(self):
+        if self.request.journal:
+            return Q(accountrole__journal=self.request.journal)
+        else:
+            return Q()
+
+    def filter_facets_if_journal(self, facets):
+        if self.request.journal:
+            facets.pop('accountrole__journal__pk', '')
+            facets.pop('is_staff', '')
+            return facets
+        else:
+            return facets
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        roles = models.Role.objects.exclude(slug='reader')
+        if not self.request.user.is_staff:
+            roles = roles.exclude(slug='journal-manager')
+        context['roles'] = roles
+
+        accountrole_form = forms.AccountRoleForm({
+            'journal': self.request.journal,
+        })
+        if self.request.journal:
+            accountrole_form.fields['journal'].widget.choices = [
+                (self.request.journal.pk, self.request.journal.name)
+            ]
+        else:
+            journal_names = core_models.SettingValue.objects.filter(
+                setting__group__name='general',
+                setting__name='journal_name',
+                journal__isnull=False,
+            ).order_by('value')
+            choices = [(None, '---------')]
+            choices.extend([(n.journal.pk, n.value) for n in journal_names])
+            accountrole_form.fields['journal'].widget.choices = choices
+        context['accountrole_form'] = accountrole_form
+
+        return context
+
+    def post(self, request, *args, **kwargs):
+
+        if 'remove_accountrole' in request.POST:
+            accountrole = core_models.AccountRole.objects.get(
+                pk=request.POST.get('remove_accountrole')
+            )
+            message = f'{accountrole.role} role removed ' \
+                      f'from {accountrole.user} in {accountrole.journal.name}.'
+            accountrole.delete()
+            messages.success(request, message)
+        elif 'role' in request.POST:
+            form = forms.AccountRoleForm(request.POST)
+            if form.is_valid():
+                accountrole = form.save()
+                message = f'{accountrole.role} role added ' \
+                          f'for {accountrole.user} in {accountrole.journal.name}.'
+                messages.success(request, message)
+
+        return super().post(request, *args, **kwargs)
+
+    def get_facet_queryset(self):
+        return None

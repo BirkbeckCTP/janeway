@@ -616,6 +616,11 @@ class CBVFacetForm(forms.Form):
                     count = values_list.count(each.pk)
                     label_with_count = f'{label} ({count})'
                     choices.append((each.pk, label_with_count))
+
+                if not facet.get('order_by'):
+                    # Default to alpha by choice label
+                    choices = sorted(choices, key=lambda x: x[1])
+
                 self.fields[facet_key] = forms.ChoiceField(
                     widget=forms.widgets.CheckboxSelectMultiple,
                     choices=choices,
@@ -691,7 +696,9 @@ class CBVFacetForm(forms.Form):
                 )
 
             elif facet['type'] == 'boolean':
-                self.fields[facet_key] = forms.BooleanField(
+                self.fields[facet_key] = forms.ChoiceField(
+                    widget=forms.widgets.RadioSelect,
+                    choices=[(1, 'Yes'), (0, 'No')],
                     required=False,
                 )
 
@@ -712,9 +719,6 @@ class CBVFacetForm(forms.Form):
                 queryset,
                 key=lambda x: sorted_fks.index(x.pk)
             )
-
-        # Note: There is no way yet to sort on the result of a 
-        # function property like journal.name
 
         return queryset
 
@@ -889,3 +893,10 @@ class SimpleTinyMCEForm(forms.Form):
     def __init__(self, field_name, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields[field_name] = forms.CharField(widget=TinyMCE)
+
+
+class AccountRoleForm(forms.ModelForm):
+
+    class Meta:
+        model = models.AccountRole
+        fields = '__all__'
