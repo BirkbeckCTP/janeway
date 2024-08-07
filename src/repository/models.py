@@ -278,13 +278,14 @@ class Repository(model_utils.AbstractSiteModel):
             repository=self,
         )
 
-    def site_url(self, path=""):
+    def site_url(self, path="", query=''):
         if self.domain and not settings.URL_CONFIG == 'path':
             return logic.build_url(
                     netloc=self.domain,
                     scheme=self._get_scheme(),
                     port=None,
                     path=path,
+                    query=query,
             )
         else:
             return self.press.site_path_url(self, path)

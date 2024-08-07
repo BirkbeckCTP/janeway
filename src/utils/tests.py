@@ -7,6 +7,7 @@ import io
 import os
 
 from django.apps import apps
+from django.http import QueryDict
 from django.test import TestCase, override_settings
 from django.utils import timezone, translation
 from django.core import mail
@@ -1187,3 +1188,60 @@ class TestMigrationUtils(TestCase):
                 new_value,
                 saved_value,
             )
+
+
+class URLLogicTests(TestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        # The unicode string of a 'next' URL
+        cls.next_url = '/target/page/?a=b&x=y'
+        # The above string url-encoded with safe='/'
+        cls.next_url_encoded = '/target/page/%3Fa%3Db%26x%3Dy'
+        # The above string prepended with 'next='
+        cls.next_url_query_string = 'next=/target/page/%3Fa%3Db%26x%3Dy'
+        # The core_login url with encoded next url
+        cls.core_login_with_next = '/login/?next=/target/page/%3Fa%3Db%26x%3Dy'
+
+    def test_build_url_query_as_querydict(self):
+        querydict = QueryDict('a=b&a=c', mutable=True)
+        querydict.update({'next': self.next_url})
+        url = logic.build_url(
+            'example.org',
+            scheme='https',
+            path='/path/',
+            query=querydict,
+        )
+        self.assertEqual(
+            url,
+            'https://example.org/path/?a=b&a=c&next=/target/page/%3Fa%3Db%26x%3Dy',
+        )
+
+    def test_build_url_query_as_plain_dict(self):
+        plain_dict = {
+            'a': 'b',
+            'next': self.next_url,
+        }
+        url = logic.build_url(
+            'example.org',
+            scheme='https',
+            path='/path/',
+            query=plain_dict,
+        )
+        self.assertEqual(
+            url,
+            'https://example.org/path/?a=b&next=/target/page/%3Fa%3Db%26x%3Dy',
+        )
+
+    def test_build_url_query_as_string(self):
+        query_string = f'a=b&a=c&{ self.next_url_query_string }'
+        url = logic.build_url(
+            'example.org',
+            scheme='https',
+            path='/path/',
+            query=query_string,
+        )
+        self.assertEqual(
+            url,
+            'https://example.org/path/?a=b&a=c&next=/target/page/%3Fa%3Db%26x%3Dy',
+        )
