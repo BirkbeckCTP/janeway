@@ -9,10 +9,7 @@
 {% endblock %}
 
 {% block breadcrumbs %}
-    <li><a href="{% url 'repository_dashboard' %}">{{ request.repository.name }}
-        Dashboard</a></li>
-    <li>Start Submission</li>
-    <li>Add Authors</li>
+{% include "admin/elements/breadcrumbs/repository_submission.html" with authors=True %}
 {% endblock %}
 
 {% block body %}
@@ -103,7 +100,7 @@
                     <p>{% trans 'Once you have added all of your authors you can complete this stage.' %}</p>
                     <form method="POST">
                         {% csrf_token %}
-                        <button name="complete" class="button">{% trans 'Complete Step 2 of 3' %}</button>
+                        <button name="complete" class="button">{% trans 'Complete Step 2 of 4' %}</button>
                     </form>
                 </div>
             </div>
