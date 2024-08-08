@@ -1058,6 +1058,13 @@ class Issue(AbstractLastModifiedModel):
                 self.update_display_title(save=False)
         super().save(*args, **kwargs)
 
+    @property
+    def publisher(self):
+        return (
+            self.journal.publisher
+            or self.journal.press.name
+        )
+
     def __str__(self):
         return (
             '{self.issue_type.pretty_name}: '
