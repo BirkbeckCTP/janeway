@@ -1,6 +1,7 @@
 import os
 
 from django import template
+from django.core.exceptions import FieldError
 from django.template.defaultfilters import filesizeformat
 
 from bs4 import BeautifulSoup
@@ -56,9 +57,23 @@ def file_type(article, file):
 
     from production.logic import get_copyedit_files
     copyedited_files = get_copyedit_files(article)
-    galley_files = [galley.file for galley in article.galley_set.all()]
+    galley_files = {galley.file for galley in article.galley_set.all()}
+    supplementary_files = {
+        supp.file for supp in article.supplementary_files.all()
+    }
     galley_sub_files = list()
-    review_files = [review.review_file for review in article.reviewassignment_set.all()]
+    review_files = {
+        review.review_file for review in article.reviewassignment_set.all()
+    }
+    try:
+        # GalleyProofing belongs to the typesetting plugin
+        annotated_files = models.File.objects.filter(
+            galleyproofing__round__article=article,
+        )
+    except FieldError:
+        annotated_files = models.File.objects.none(
+            proofingtask__round__article=article,
+        )
 
     for galley in article.galley_set.all():
         for image in galley.images.all():
@@ -66,12 +81,16 @@ def file_type(article, file):
         if galley.css_file:
             galley_sub_files.append(galley.css_file)
 
-    if file in article.manuscript_files.all() and file not in galley_files:
+    if file in galley_files:
+        return 'Galley'
+    if file in supplementary_files:
+        return 'Supplementary'
+    if file in article.manuscript_files.all():
         return 'Manuscript'
     if file in article.data_figure_files.all():
         return 'Data/Figure'
-    if file in galley_files:
-        return 'Galley'
+    if file in annotated_files:
+        return 'Proofing'
     if file in copyedited_files:
         return 'Copyedit'
     if file in galley_sub_files:
