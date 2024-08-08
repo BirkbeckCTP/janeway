@@ -119,31 +119,33 @@
                     {% endif %}
 
                     {% if article.is_published or proofing %}
-                    {% if galleys %}
                         <div class="show-on-small hide-on-med-and-up">
-                            <h2>{% trans "Download" %}</h2>
-                            <p>
-                                {% for galley in galleys %}
-                                    <a href="{% url 'article_download_galley' article.id galley.id %}">{% trans "Download" %} {{ galley.label }}</a>
-                                    <br/>
-                                    {% if galley.file.mime_type == 'application/pdf' and journal.view_pdf_button %}
-                                        <a target="_blank"
-                                           href="{% url 'article_view_galley' article.id galley.id %}">View
-                                            PDF</a><br/>
-                                    {% endif %}
-                                {% endfor %}
-                            </p>
-                            {% if proofing %}
-                                <p id="note_to_proofreader_1">
-                                    <i class="material-icons left">info</i>
-                                    Note to proofreader: Download links on this page begin to work when the article is published.
+                            <h2>{% trans "Downloads" %}</h2>
+                            {% if galleys %}
+                                <p>
+                                    {% for galley in galleys %}
+                                        <a href="{% url 'article_download_galley' article.id galley.id %}">{% trans "Download" %} {{ galley.label }}</a>
+                                        <br/>
+                                        {% if galley.file.mime_type == 'application/pdf' and journal.view_pdf_button %}
+                                            <a target="_blank"
+                                            href="{% url 'article_view_galley' article.id galley.id %}">View
+                                                PDF</a><br/>
+                                        {% endif %}
+                                    {% endfor %}
                                 </p>
+                                {% if proofing %}
+                                    <p id="note_to_proofreader_1">
+                                        <i class="material-icons left">info</i>
+                                        Note to proofreader: Download links on this page begin to work when the article is published.
+                                    </p>
+                                {% endif %}
+                            {% else %}
+                                <p> {% trans 'Downloads are not available for this article.' %}</p>
                             {% endif %}
                             <div class="spacer">
                                 <div class="divider"></div>
                             </div>
                         </div>
-                    {% endif %}
                     {% endif %}
 
                     {% if article.funders.all %}
@@ -178,48 +180,48 @@
                         <div class="card">
                             <div class="card-content center">
                                 <div class="alm">
-                                    <p class="alm_numbers">
+                                    <h5>
                                         {{ article.metrics.views }}
-                                    </p>
-                                    <p><i class="fa fa-eye"></i> {% trans "Views" %}</p>
+                                    </h5>
+                                    <p><i class="fa fa-eye"></i>{% trans "Views" %}</p>
                                 </div>
                                 <div class="alm">
-                                    <p class="alm_numbers">
+                                    <h5>
                                         {{ article.metrics.downloads }}
-                                    </p>
-                                    <p><i class="fa fa-download"></i> {% trans "Downloads" %}</p>
+                                    </h5>
+                                    <p><i class="fa fa-download"></i>{% trans "Downloads" %}</p>
                                 </div>
                                 {% if article.metrics.alm.twitter %}
                                     <div class="alm">
-                                        <p class="alm_numbers">
+                                        <h5>
                                             {{ article.metrics.alm.twitter }}
-                                        </p>
-                                        <p><i class="fa fa-twitter"></i> {% trans "Tweets" %}</p>
+                                        </h5>
+                                        <p><i class="fa fa-twitter"></i>{% trans "Tweets" %}</p>
                                     </div>
                                 {% endif %}
                                 {% if article.metrics.alm.wikipedia %}
                                     <div class="alm">
-                                        <p class="alm_numbers">
+                                        <h5>
                                             {{ article.metrics.alm.wikipedia }}
-                                        </p>
-                                        <p><i class="fa fa-wikipedia-w"></i> {% trans "Wikipedia" %}</p>
+                                        </h5>
+                                        <p><i class="fa fa-wikipedia-w"></i>{% trans "Wikipedia" %}</p>
                                     </div>
                                 {% endif %}
                                 {% if article.metrics.alm.reddit %}
                                     <div class="alm">
-                                        <p class="alm_numbers">
+                                        <h5>
                                             {{ article.metrics.alm.reddit }}
-                                        </p>
-                                        <p><i class="fa fa-reddit"></i> {% trans "Reddit" %}</p>
+                                        </h5>
+                                        <p><i class="fa fa-reddit"></i>{% trans "Reddit" %}</p>
                                     </div>
                                 {% endif %}
 
                                 {% if article.citation_count and not journal_settings.article.suppress_citations_metric %}
                                     <div class="alm">
-                                        <p class="alm_numbers">
+                                        <h5>
                                             {{ article.citation_count }}
-                                        </p>
-                                        <p><i class="fa fa-quote-left"></i> {% trans "Citations" %}</p>
+                                        </h5>
+                                        <p><i class="fa fa-quote-left"></i>{% trans "Citations" %}</p>
                                     </div>
                                 {% endif %}
                             </div>
@@ -290,33 +292,34 @@
                         <div class="divider"></div>
                     </div>
                     {% if article.is_published or proofing %}
-                    {% if galleys %}
                         <h4>
-                            {% trans "Download" %}
+                            {% trans "Downloads" %}
                         </h4>
-
-                        <ul>
-                            {% for galley in galleys %}
-                                <li>
-                                    <a href="{% url 'article_download_galley' article.id galley.id %}">{% trans "Download" %} {{ galley.label }}</a>
-                                    {% if galley.file.mime_type == 'application/pdf' and journal.view_pdf_button %}
-                                        </li>
-                                        <li>
-                                            <a target="_blank" href="{% url 'article_view_galley' article.id galley.id %}">{% trans "View" %} {{ galley.label }}</a>
-                                    {% endif %}
-                                </li>
-                            {% endfor %}
-                        </ul>
-                        {% if proofing %}
-                            <p id="note_to_proofreader_2">
-                                <i class="material-icons left">info</i>
-                                Note to proofreader: Download links on this page begin to work when the article is published.
-                            </p>
+                        {% if galleys %}
+                            <ul>
+                                {% for galley in galleys %}
+                                    <li>
+                                        <a href="{% url 'article_download_galley' article.id galley.id %}">{% trans "Download" %} {{ galley.label }}</a>
+                                        {% if galley.file.mime_type == 'application/pdf' and journal.view_pdf_button %}
+                                            </li>
+                                            <li>
+                                                <a target="_blank" href="{% url 'article_view_galley' article.id galley.id %}">{% trans "View" %} {{ galley.label }}</a>
+                                        {% endif %}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                            {% if proofing %}
+                                <p id="note_to_proofreader_2">
+                                    <i class="material-icons left">info</i>
+                                    Note to proofreader: Download links on this page begin to work when the article is published.
+                                </p>
+                            {% endif %}
+                            <div class="spacer">
+                                <div class="divider"></div>
+                            </div>
+                        {% else %}
+                            <p> {% trans 'Downloads are not available for this article.' %}</p>
                         {% endif %}
-                        <div class="spacer">
-                            <div class="divider"></div>
-                        </div>
-                    {% endif %}
                     {% endif %}
 
                     {% include "elements/journal/article_issue_list.html" %}
@@ -473,19 +476,23 @@
                         <h4>
                             {% trans "File Checksums" %} (MD5)
                         </h4>
-                        <ul>
-                            {% for galley in galleys %}
-                                <li>
-                                    <small>{{ galley.label }}: {{ galley.file.checksum }}</small>
-                                </li>
-                            {% endfor %}
-                        </ul>
+                        {% if galleys %}
+                            <ul>
+                                {% for galley in galleys %}
+                                    <li>
+                                        <small>{{ galley.label }}: {{ galley.file.checksum }}</small>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p> {% trans 'File Checksums are not available for this article.' %}</p>
+                        {% endif %}
                     {% endif %}
                 </div>
             </div>
             {% if article_content %}
             <div class="card toc-card hide-on-small-only" id="toc-card" style="display: none;">
-                <div class="card-content">
+                <div class="card-content" id="toc-section">
                     <h4>
                         {% trans "Table of Contents" %}
                     </h4>
