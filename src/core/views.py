@@ -6,6 +6,7 @@ __maintainer__ = "Birkbeck Centre for Technology and Publishing"
 
 from importlib import import_module
 import json
+from urllib.parse import unquote, urlencode
 import pytz
 import time
 
@@ -63,10 +64,11 @@ def user_login(request):
     :param request: HttpRequest
     :return: HttpResponse
     """
+    next_url = request.GET.get('next', '') or request.POST.get('next', '')
     if request.user.is_authenticated:
         messages.info(request, 'You are already logged in.')
-        if request.GET.get('next'):
-            return redirect(request.GET.get('next'))
+        if next_url:
+            return redirect(next_url)
         else:
             return redirect(reverse('website_index'))
     else:
@@ -86,10 +88,10 @@ def user_login(request):
         form = forms.LoginForm(request.POST, bad_logins=bad_logins)
 
         if form.is_valid():
-            user = request.POST.get('user_name').lower()
-            pawd = request.POST.get('user_pass')
+            username = request.POST.get('user_name').lower()
+            password = request.POST.get('user_pass')
 
-            user = authenticate(username=user, password=pawd)
+            user = authenticate(username=username, password=password)
 
             if user is not None:
                 login(request, user)
@@ -99,15 +101,15 @@ def user_login(request):
                 orcid_token = request.POST.get('orcid_token', None)
                 if orcid_token:
                     try:
-                        token_obj = models.OrcidToken.objects.get(token=orcid_token, expiry__gt=timezone.now())
-                        user.orcid = token_obj.orcid
+                        token_obj = models.AccountToken.objects.get(token=orcid_token, expiry__gt=timezone.now())
+                        user.orcid = token_obj.identifier
                         user.save()
                         token_obj.delete()
-                    except models.OrcidToken.DoesNotExist:
+                    except models.AccountToken.DoesNotExist:
                         pass
 
-                if request.GET.get('next'):
-                    return redirect(request.GET.get('next'))
+                if next_url:
+                    return redirect(next_url)
                 elif request.journal:
                     return redirect(reverse('core_dashboard'))
                 else:
@@ -140,6 +142,7 @@ def user_login(request):
 
     context = {
         'form': form,
+        'next_url': next_url,
     }
     template = 'core/login.html'
 
@@ -152,22 +155,41 @@ def user_login_orcid(request):
     :param request: HttpRequest object
     :return: HttpResponse object
     """
-    orcid_code = request.GET.get('code', None)
+    data = request.GET or request.POST
+    orcid_code = data.get('code')
+    try:
+        account_token = models.AccountToken.objects.get(
+            token=data.get('state'),
+            expired=False,
+        )
+    except models.AccountToken.DoesNotExist:
+        account_token = None
 
-    if orcid_code and django_settings.ENABLE_ORCID:
+    next_url = account_token.next_url if account_token else ''
+
+    if not django_settings.ENABLE_ORCID:
+        messages.add_message(
+            request,
+            messages.WARNING,
+            _('ORCID is not enabled.'
+            'Please log in with your username and password.')
+        )
+        return redirect(logic.reverse_with_next('core_login', request))
+
+    elif orcid_code:
+
         orcid_id = orcid.retrieve_tokens(
             orcid_code,
             request.site_type,
         )
-
         if orcid_id:
             try:
                 user = models.Account.objects.get(orcid=orcid_id)
                 user.backend = 'django.contrib.auth.backends.ModelBackend'
                 login(request, user)
 
-                if request.GET.get('next'):
-                    return redirect(request.GET.get('next'))
+                if next_url:
+                    return redirect(next_url)
                 elif request.journal:
                     return redirect(reverse('core_dashboard'))
                 else:
@@ -175,6 +197,7 @@ def user_login_orcid(request):
 
             except models.Account.DoesNotExist:
                 # Lookup ORCID email addresses
+                import pdb; pdb.set_trace()
                 orcid_details = orcid.get_orcid_record_details(orcid_id)
                 for email in orcid_details.get("emails"):
                     candidates = models.Account.objects.filter(email=email)
@@ -182,31 +205,41 @@ def user_login_orcid(request):
                         # Store ORCID for future authentication requests
                         candidates.update(orcid=orcid_id)
                         login(request, candidates.first())
-                        if request.GET.get('next'):
-                            return redirect(request.GET.get('next'))
+                        if next_url:
+                            return redirect(next_url)
                         elif request.journal:
                             return redirect(reverse('core_dashboard'))
                         else:
                             return redirect(reverse('website_index'))
 
-                # Prepare ORCID Token for registration and redirect
-                models.OrcidToken.objects.filter(orcid=orcid_id).delete()
-                new_token = models.OrcidToken.objects.create(orcid=orcid_id)
-
-                return redirect(reverse('core_orcid_registration', kwargs={'token': new_token.token}))
+                # Add ORCID to account token for registration and redirect
+                account_token.identifier = orcid_id
+                account_token.save()
+                return redirect(
+                    logic.reverse(
+                        'core_orcid_registration',
+                        kwargs={'token': account_token.token}
+                    )
+                )
         else:
             messages.add_message(
                 request,
                 messages.WARNING,
-                'Valid ORCiD not returned, please try again, or login with your username and password.'
+                'Valid ORCiD not returned. '
+                'Please try again, or log in with your username and password.'
             )
-            return redirect(reverse('core_login'))
+            return redirect(logic.reverse_with_next('core_login', request))
     else:
-        messages.add_message(
-            request,
-            messages.WARNING,
-            'No authorisation code provided, please try again or login with your username and password.')
-        return redirect(reverse('core_login'))
+        account_token = models.AccountToken.objects.create()
+        base = "https://orcid.org/oauth/authorize"
+        query_dict = {
+            'client_id': django_settings.ORCID_CLIENT_ID,
+            'response_type': 'code',
+            'scope': '/authenticate',
+            'redirect_uri': orcid.build_redirect_uri(request.site_type),
+            'state': account_token.token,
+        }
+        return redirect(f'{base}?{urlencode(query_dict)}')
 
 
 @login_required
@@ -238,9 +271,9 @@ def get_reset_token(request):
         try:
             account = models.Account.objects.get(email__iexact=email_address)
             logic.start_reset_process(request, account)
-            return redirect(reverse('core_login'))
+            return redirect(logic.reverse_with_next('core_login', request))
         except models.Account.DoesNotExist:
-            return redirect(reverse('core_login'))
+            return redirect(logic.reverse_with_next('core_login', request))
 
     template = 'core/accounts/get_reset_token.html'
     context = {
@@ -252,12 +285,14 @@ def get_reset_token(request):
 
 def reset_password(request, token):
     """
-    Takes a reset token and checks if it is valid then allows a user to reset their password, adter it expires the token
+    Takes a reset token and checks if it is valid.
+    Then it allows a user to reset their password,
+    and finally it expires the token.
     :param request: HttpRequest
-    :param token: string, PasswordResetToken.token
+    :param token: string, AccountToken.token
     :return: HttpResponse object
     """
-    reset_token = get_object_or_404(models.PasswordResetToken, token=token, expired=False)
+    reset_token = get_object_or_404(models.AccountToken, token=token, expired=False)
     form = forms.PasswordResetForm()
 
     if reset_token.has_expired():
@@ -281,7 +316,7 @@ def reset_password(request, token):
             reset_token.expired = True
             reset_token.save()
             messages.add_message(request, messages.SUCCESS, 'Your password has been reset.')
-            return redirect(reverse('core_login'))
+            return redirect(logic.reverse_with_next('core_login', request))
 
     template = 'core/accounts/reset_password.html'
     context = {
@@ -294,16 +329,22 @@ def reset_password(request, token):
 
 def register(request):
     """
-    Displays a form for users to register with the journal. If the user is registering on a journal we give them
+    Displays a form for users to register with the journal.
+    If the user is registering on a journal we give them
     the Author role.
     :param request: HttpRequest object
     :return: HttpResponse object
     """
     initial = {}
-    token, token_obj = request.GET.get('token', None), None
-    if token:
-        token_obj = get_object_or_404(models.OrcidToken, token=token)
-        orcid_details = orcid.get_orcid_record_details(token_obj.orcid)
+
+    orcid_token = request.GET.get('token') or request.POST.get('token')
+    orcid_token_obj = None
+    if orcid_token:
+        orcid_token_obj = get_object_or_404(
+            models.AccountToken,
+            token=orcid_token,
+        )
+        orcid_details = orcid.get_orcid_record_details(orcid_token_obj.identifier)
         initial["first_name"] = orcid_details.get("first_name")
         initial["last_name"] = orcid_details.get("last_name")
         if orcid_details.get("emails"):
@@ -313,8 +354,10 @@ def register(request):
         journal=request.journal,
         initial=initial,
     )
+    next_url = request.GET.get('next') or request.POST.get('next')
 
     if request.POST:
+
         form = forms.RegistrationForm(
             request.POST,
             journal=request.journal,
@@ -327,18 +370,21 @@ def register(request):
                 form.add_error('password_1', policy_fail)
 
         if form.is_valid():
-            if token_obj:
+            if orcid_token_obj:
                 new_user = form.save(commit=False)
-                new_user.orcid = token_obj.orcid
+                new_user.orcid = orcid_token_obj.identifier
                 new_user.save()
-                token_obj.delete()
+                orcid_token_obj.expired = True
+                orcid_token_obj.account = new_user
+                orcid_token_obj.save()
                 # If the email matches the user email on ORCID, log them in
                 if new_user.email == initial.get("email"):
                     new_user.is_active = True
                     new_user.save()
                     login(request, new_user)
-                    if request.GET.get('next'):
-                        return redirect(request.GET.get('next'))
+                    next_url = orcid_token_obj.next_url or next_url
+                    if next_url:
+                        return redirect(next_url)
                     elif request.journal:
                         return redirect(reverse('core_dashboard'))
                     else:
@@ -352,10 +398,10 @@ def register(request):
 
             messages.add_message(
                 request, messages.SUCCESS,
-                _('Your account has been created, please follow the'
+                _('Your account has been created. Please follow the '
                 'instructions in the email that has been sent to you.'),
             )
-            return redirect(reverse('core_login'))
+            return redirect(logic.reverse_with_next('core_login', request))
 
     template = 'core/accounts/register.html'
     context = {
@@ -366,7 +412,7 @@ def register(request):
 
 
 def orcid_registration(request, token):
-    token = get_object_or_404(models.OrcidToken, token=token, expiry__gt=timezone.now())
+    token = get_object_or_404(models.AccountToken, token=token, expiry__gt=timezone.now())
 
     template = 'core/accounts/orcid_registration.html'
     context = {
@@ -385,13 +431,17 @@ def activate_account(request, token):
     :return: HttpResponse object
     """
     try:
-        account = models.Account.objects.get(confirmation_code=token, is_active=False)
+        account = models.Account.objects.get(
+            accounttoken__token=token,
+            is_active=False,
+        )
     except models.Account.DoesNotExist:
         account = None
 
     if account and request.POST:
         account.is_active = True
-        account.confirmation_code = None
+        account.accounttoken.expired = True
+        account.accounttoken.save()
         account.save()
 
         messages.add_message(
@@ -400,7 +450,7 @@ def activate_account(request, token):
             _('Account activated'),
         )
 
-        return redirect(reverse('core_login'))
+        return redirect(logic.reverse_with_next('core_login', request))
 
     template = 'core/accounts/activate_account.html'
     context = {
@@ -440,7 +490,8 @@ def edit_profile(request):
             try:
                 validate_email(email_address)
                 try:
-                    logic.handle_email_change(request, email_address)
+                    next_url = reverse('core_edit_profile')
+                    logic.handle_email_change(request, email_address, next_url)
                     return redirect(reverse('website_index'))
                 except IntegrityError:
                     messages.add_message(

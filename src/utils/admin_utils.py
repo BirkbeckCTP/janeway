@@ -181,8 +181,8 @@ class SectionOrderingInline(admin.TabularInline):
     raw_id_fields = ('section', 'issue')
 
 
-class PasswordResetInline(admin.TabularInline):
-    model = core_models.PasswordResetToken
+class AccountTokenInline(admin.TabularInline):
+    model = core_models.AccountToken
     extra = 0
 
 

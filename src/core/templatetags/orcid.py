@@ -12,4 +12,3 @@ def orcid_redirect_uri(context):
         return build_redirect_uri(request.site_type)
     else:
         return ""
-

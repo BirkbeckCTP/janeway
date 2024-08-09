@@ -260,7 +260,6 @@ class AuthorForm(forms.ModelForm):
             'date_joined',
             'activation_code'
             'date_confirmed'
-            'confirmation_code'
             'reset_code'
             'reset_code_validated'
             'roles'

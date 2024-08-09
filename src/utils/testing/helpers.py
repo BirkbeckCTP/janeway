@@ -4,9 +4,14 @@ __license__ = "AGPL v3"
 __maintainer__ = "Birkbeck Centre for Technology and Publishing"
 
 from contextlib import ContextDecorator
+from unittest.mock import Mock
 
+from django.http import HttpRequest
+from django.test.client import QueryDict
 from django.utils import translation, timezone
 from django.conf import settings
+from django.contrib.auth.models import User
+from django.contrib.contenttypes.models import ContentType
 import datetime
 
 from core import (
@@ -638,3 +643,23 @@ def create_setting(
         is_translatable=is_translatable,
         default_value=default_value,
     )
+
+
+def get_mock_request(press, journal=None):
+    request = Mock(HttpRequest)
+    type(request).user = Mock(User)
+    type(request).GET = QueryDict()
+    type(request).POST = QueryDict()
+
+    type(request).press = Mock(press_models.Press)
+    if journal:
+        type(request).journal = Mock(journal_models.Journal)
+        journal_type = ContentType.objects.get_for_model(journal)
+        type(request).model_content_type = journal_type
+        type(request).site_type = journal
+    else:
+        press_type = ContentType.objects.get_for_model(press)
+        type(request).model_content_type = press_type
+        type(request).site_type = press
+
+    return request

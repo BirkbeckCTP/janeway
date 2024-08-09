@@ -13,9 +13,12 @@
                     {% csrf_token %}
                     <div class="card-content">
                         <span class="card-title">{% trans "Login with your account" %}</span>
-                         {% if settings.ENABLE_ORCID %}
-                        <a href="{{ settings.ORCID_URL }}?client_id={{ settings.ORCID_CLIENT_ID }}&response_type=code&scope=/authenticate&redirect_uri={% orcid_redirect_uri %}"
-                           class="btn wide-button orcid-button">{% trans "Log in with ORCiD" %}</a>
+                        {% if settings.ENABLE_ORCID %}
+                            <a
+                                href="{% url 'core_login_orcid' %}"
+                                class="btn wide-button orcid-button">
+                                {% trans "Log in with ORCiD" %}
+                            </a>
                         {% endif %}
                         {% if settings.ENABLE_OIDC %}
                         <a href="/oidc/authenticate{% if request.GET.next %}?next={{ request.GET.next }}{% elif request.journal %}?next={{ request.journal.site_url }}{% elif request.repository %}?next={{ request.repository.site_url }}{% else %}?next={{ request.press.site_url }}{% endif %}"
